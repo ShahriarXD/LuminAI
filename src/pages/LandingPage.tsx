@@ -119,7 +119,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              <span className="font-display text-sm font-bold text-primary">C</span>
+              <span className="font-display text-sm font-bold text-primary">KM</span>
             </div>
             <span className="font-display text-lg font-bold text-foreground">Lumina by KM ❤️      </span>
           </div>
