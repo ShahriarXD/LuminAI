@@ -1,0 +1,90 @@
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Paperclip, Brain, Mic, SendHorizonal } from "lucide-react";
+
+interface ChatInputProps {
+  onSend: (message: string) => void;
+  isLoading?: boolean;
+}
+
+export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+  const [value, setValue] = useState("");
+  const [deepThink, setDeepThink] = useState(false);
+
+  const handleSubmit = () => {
+    if (!value.trim() || isLoading) return;
+    onSend(value.trim());
+    setValue("");
+  };
+
+  return (
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.6, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full max-w-2xl mx-auto"
+    >
+      <div className="glass-strong rounded-2xl shadow-glass p-1">
+        <div className="px-4 pt-3 pb-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            placeholder="Ask me anything..."
+            className="w-full bg-transparent text-foreground placeholder:text-muted-foreground text-sm outline-none font-body"
+            disabled={isLoading}
+          />
+        </div>
+        <div className="flex items-center justify-between px-3 pb-2.5">
+          <div className="flex items-center gap-1">
+            <ActionButton icon={Paperclip} label="Attach" />
+            <ActionButton
+              icon={Brain}
+              label="Deep Think"
+              active={deepThink}
+              onClick={() => setDeepThink(!deepThink)}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <ActionButton icon={Mic} label="Voice" />
+            <button
+              onClick={handleSubmit}
+              disabled={!value.trim() || isLoading}
+              className="flex items-center gap-1.5 rounded-full gradient-send px-4 py-1.5 text-xs font-medium text-primary-foreground transition-all duration-200 hover:shadow-glow active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <SendHorizonal className="h-3.5 w-3.5" />
+              <span>Send</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
+        active
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      <span>{label}</span>
+    </button>
+  );
+}
