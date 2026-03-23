@@ -294,41 +294,21 @@ const Index = () => {
               >
                 <div ref={scrollRef} className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto px-1 sm:px-2 py-4 scrollbar-none">
                   {messages.map((msg, i) => (
-                    <motion.div
+                    <ChatMessage
                       key={i}
-                      initial={{ y: 12, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.4, delay: i === 0 ? 0.15 : 0, ease: [0.16, 1, 0.3, 1] }}
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div className={`flex flex-col ${isMobile ? "max-w-[90%]" : "max-w-[80%]"}`}>
-                        <div
-                          className={`rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                            msg.role === "user"
-                              ? "gradient-send text-primary-foreground shadow-glow"
-                              : "glass text-foreground"
-                          }`}
-                          style={msg.role === "assistant" ? {
-                            boxShadow: "0 2px 16px hsl(240 20% 50% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.3)",
-                          } : undefined}
-                        >
-                          {msg.content}
-                        </div>
-                        {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                          <SourceCitations sources={msg.sources} />
-                        )}
-                        {msg.role === "assistant" && tts.isSupported && msg.content && (
-                          <SpeakButton
-                            isPlaying={tts.isPlaying && speakingIdx === i}
-                            isPaused={tts.isPaused && speakingIdx === i}
-                            onSpeak={() => { setSpeakingIdx(i); tts.speak(msg.content); }}
-                            onPause={tts.pause}
-                            onResume={tts.resume}
-                            onStop={() => { tts.stop(); setSpeakingIdx(null); }}
-                          />
-                        )}
-                      </div>
-                    </motion.div>
+                      role={msg.role}
+                      content={msg.content}
+                      sources={msg.sources}
+                      index={i}
+                      isMobile={isMobile}
+                      ttsSupported={msg.role === "assistant" && tts.isSupported}
+                      isSpeaking={tts.isPlaying && speakingIdx === i}
+                      isPaused={tts.isPaused && speakingIdx === i}
+                      onSpeak={() => { setSpeakingIdx(i); tts.speak(msg.content); }}
+                      onPause={tts.pause}
+                      onResume={tts.resume}
+                      onStop={() => { tts.stop(); setSpeakingIdx(null); }}
+                    />
                   ))}
                   {isLoading && messages[messages.length - 1]?.role === "user" && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
