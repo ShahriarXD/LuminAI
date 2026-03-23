@@ -56,7 +56,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     setIsListening(true);
     setTranscript("");
     setInterimTranscript("");
-  }, [SpeechRecognition]);
+  }, []);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
