@@ -39,7 +39,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
   }, [userId]);
 
   const loadMemories = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("memories")
       .select("*")
       .eq("user_id", userId)
