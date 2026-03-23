@@ -215,6 +215,7 @@ const Index = () => {
 
   const showHero = messages.length === 0;
   const activeProject = projects.find((p) => p.id === activeProjectId);
+  const orbState: OrbState = isLoading ? "streaming" : "idle";
 
   return (
     <div className="flex min-h-screen min-h-[100dvh]">
