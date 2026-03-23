@@ -157,6 +157,34 @@ const Index = () => {
     });
   };
 
+  const handleImageGen = async (prompt: string) => {
+    if (isLoading) return;
+    let chatId = activeChatId;
+    if (!chatId) { chatId = await createChat(prompt); if (!chatId) return; setActiveChatId(chatId); }
+
+    const userMsg: ChatMsg = { role: "user", content: `🖼️ ${prompt}` };
+    setMessages((prev) => [...prev, userMsg]);
+    await supabase.from("messages").insert({ chat_id: chatId, role: "user", content: userMsg.content });
+
+    setIsLoading(true);
+
+    await generateImage({
+      prompt,
+      onResult: async (text, images) => {
+        setIsLoading(false);
+        const assistantMsg: ChatMsg = { role: "assistant", content: text || "Here's your generated image:", images };
+        setMessages((prev) => [...prev, assistantMsg]);
+        if (chatId) {
+          await supabase.from("messages").insert({ chat_id: chatId, role: "assistant", content: text || "Image generated" });
+        }
+      },
+      onError: (error) => {
+        setIsLoading(false);
+        toast.error(error);
+      },
+    });
+  };
+
   const handleNewChat = () => { setActiveChatId(null); setMessages([]); };
 
   const handleDeleteChat = async (id: string) => {
