@@ -209,7 +209,7 @@ export async function retrieveRelevantChunks(
 
 // Fetch user memories
 export async function fetchMemories(userId: string, limit = 20): Promise<Memory[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("memories")
     .select("id, content, category")
     .eq("user_id", userId)
