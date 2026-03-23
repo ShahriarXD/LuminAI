@@ -7,8 +7,10 @@ import { HeroOrb } from "@/components/HeroOrb";
 import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
+import { SpeakButton } from "@/components/SpeakButton";
 import ProfilePage from "@/pages/ProfilePage";
 import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { toast } from "sonner";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
@@ -27,6 +29,8 @@ const Index = () => {
   const [profile, setProfile] = useState<UserProfile>({});
   const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const tts = useTextToSpeech();
 
   const loadChats = useCallback(async () => {
     let query = supabase.from("chats").select("id, title, updated_at, project_id, is_pinned, tags").order("updated_at", { ascending: false });
@@ -225,8 +229,20 @@ const Index = () => {
                     transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "gradient-send text-primary-foreground" : "glass text-foreground"}`}>
-                      {msg.content}
+                    <div className="flex flex-col">
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "gradient-send text-primary-foreground" : "glass text-foreground"}`}>
+                        {msg.content}
+                      </div>
+                      {msg.role === "assistant" && tts.isSupported && msg.content && (
+                        <SpeakButton
+                          isPlaying={tts.isPlaying && speakingIdx === i}
+                          isPaused={tts.isPaused && speakingIdx === i}
+                          onSpeak={() => { setSpeakingIdx(i); tts.speak(msg.content); }}
+                          onPause={tts.pause}
+                          onResume={tts.resume}
+                          onStop={() => { tts.stop(); setSpeakingIdx(null); }}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 ))}
