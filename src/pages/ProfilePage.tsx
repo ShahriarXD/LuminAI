@@ -19,7 +19,7 @@ const fields = [
 
 type ProfileData = Record<string, string>;
 
-export default function ProfilePage({ onBack }: ProfilePageProps) {
+export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps) {
   const [profile, setProfile] = useState<ProfileData>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
