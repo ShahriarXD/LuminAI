@@ -30,6 +30,7 @@ export interface Memory {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const IMAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
 
 export type ProviderType = "groq" | "lovable";
 
@@ -37,6 +38,14 @@ export const PROVIDERS = [
   { id: "groq" as const, label: "Groq", description: "Fast inference" },
   { id: "lovable" as const, label: "Lovable AI", description: "Gemini & GPT-5" },
 ] as const;
+
+export const IMAGE_MODELS = [
+  { id: "google/gemini-2.5-flash-image", label: "Flash Image", description: "Fast generation" },
+  { id: "google/gemini-3-pro-image-preview", label: "Pro Image", description: "Higher quality" },
+  { id: "google/gemini-3.1-flash-image-preview", label: "Flash Image Pro", description: "Fast + pro quality" },
+] as const;
+
+export type ImageModelId = typeof IMAGE_MODELS[number]["id"];
 
 export const AVAILABLE_MODELS = [
   // Groq models
@@ -236,5 +245,47 @@ export async function triggerMemoryExtraction(messages: Msg[], chatId: string | 
     });
   } catch {
     // Silent fail - memory extraction is non-critical
+  }
+}
+
+// Image generation
+export interface GeneratedImage {
+  type: string;
+  image_url: { url: string };
+}
+
+export async function generateImage({
+  prompt,
+  model,
+  onResult,
+  onError,
+}: {
+  prompt: string;
+  model?: ImageModelId;
+  onResult: (text: string, images: GeneratedImage[]) => void;
+  onError: (error: string) => void;
+}) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const resp = await fetch(IMAGE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ prompt, model: model || "google/gemini-2.5-flash-image" }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: "Request failed" }));
+      onError(err.error || "Image generation failed");
+      return;
+    }
+
+    const data = await resp.json();
+    onResult(data.text || "", data.images || []);
+  } catch (e) {
+    onError(e instanceof Error ? e.message : "Unknown error");
   }
 }
