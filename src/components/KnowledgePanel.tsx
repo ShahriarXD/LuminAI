@@ -30,7 +30,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
   const [activeTab, setActiveTab] = useState<"files" | "memory">("files");
 
   const loadDocuments = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("documents")
       .select("*")
       .eq("user_id", userId)
