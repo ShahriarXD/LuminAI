@@ -17,6 +17,7 @@ import { KnowledgePanel } from "@/components/KnowledgePanel";
 import ProfilePage from "@/pages/ProfilePage";
 import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; sources?: SourceCitation[]; }
@@ -40,6 +41,7 @@ const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const tts = useTextToSpeech();
+  const isMobile = useIsMobile();
 
   const loadChats = useCallback(async () => {
     let query = supabase.from("chats").select("id, title, updated_at, project_id, is_pinned, tags").order("updated_at", { ascending: false });
@@ -100,7 +102,6 @@ const Index = () => {
     setMessages((prev) => [...prev, userMsg]);
     await supabase.from("messages").insert({ chat_id: chatId, role: "user", content: message });
 
-    // Retrieve RAG context
     let ragContext: RAGChunk[] = [];
     if (user) {
       ragContext = await retrieveRelevantChunks(message, user.id, activeProjectId);
@@ -142,13 +143,11 @@ const Index = () => {
         if (cleanContent && chatId) {
           await supabase.from("messages").insert({ chat_id: chatId, role: "assistant", content: cleanContent });
         }
-        // Extract memories in background
         if (chatId) {
           triggerMemoryExtraction(
             [...messages, userMsg, { role: "assistant" as const, content: cleanContent }],
             chatId
           );
-          // Reload memories periodically
           setTimeout(() => { if (user) loadMemories(user.id); }, 5000);
         }
       },
@@ -218,7 +217,7 @@ const Index = () => {
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen min-h-[100dvh]">
       <AppSidebar
         chats={chats}
         activeChatId={activeChatId}
@@ -238,32 +237,34 @@ const Index = () => {
         onOpenKnowledge={() => setShowKnowledge(true)}
       />
 
-      <main className="ml-16 flex flex-1 flex-col">
-        <header className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+      <main className={`flex flex-1 flex-col ${isMobile ? "ml-0" : "ml-16"}`}>
+        <header className={`flex items-center justify-between py-3 ${isMobile ? "px-14 pt-4" : "px-6 py-4"}`}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <ModelSelector value={model} provider={provider} onChange={handleModelChange} />
             {activeProject && (
-              <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+              <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full truncate max-w-[120px] sm:max-w-none">
                 {activeProject.name}
               </span>
             )}
-            {memories.length > 0 && (
+            {memories.length > 0 && !isMobile && (
               <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-full">
                 🧠 {memories.length} memories
               </span>
             )}
           </div>
-          <span className="text-xs text-muted-foreground truncate max-w-[160px]">{profile.name || user?.email}</span>
+          {!isMobile && (
+            <span className="text-xs text-muted-foreground truncate max-w-[160px]">{profile.name || user?.email}</span>
+          )}
         </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8">
+        <div className="flex flex-1 flex-col items-center justify-center px-3 sm:px-4 pb-4 sm:pb-8">
           {showHero ? (
-            <div className="flex flex-col items-center gap-8">
+            <div className="flex flex-col items-center gap-5 sm:gap-8 w-full max-w-2xl">
               <motion.h1
                 initial={{ y: 16, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="text-center font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl"
+                className="text-center font-display text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight"
                 style={{ lineHeight: "1.1" }}
               >
                 <span className="text-gradient-muted">AI Powered</span>{" "}
@@ -277,7 +278,7 @@ const Index = () => {
             </div>
           ) : (
             <div className="flex w-full max-w-2xl flex-1 flex-col">
-              <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-2 py-4 scrollbar-none">
+              <div ref={scrollRef} className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto px-1 sm:px-2 py-4 scrollbar-none">
                 {messages.map((msg, i) => (
                   <motion.div
                     key={i}
@@ -286,8 +287,17 @@ const Index = () => {
                     transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="flex flex-col max-w-[80%]">
-                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "gradient-send text-primary-foreground" : "glass text-foreground"}`}>
+                    <div className={`flex flex-col ${isMobile ? "max-w-[90%]" : "max-w-[80%]"}`}>
+                      <div
+                        className={`rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                          msg.role === "user"
+                            ? "gradient-send text-primary-foreground shadow-glow"
+                            : "glass text-foreground"
+                        }`}
+                        style={msg.role === "assistant" ? {
+                          boxShadow: "0 2px 16px hsl(240 20% 50% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.3)",
+                        } : undefined}
+                      >
                         {msg.content}
                       </div>
                       {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
@@ -310,7 +320,7 @@ const Index = () => {
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                     <div className="flex flex-col gap-1">
                       <SearchStatus isSearching={true} isThinking={true} hasRagContext={false} />
-                      <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground">
+                      <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground" style={{ boxShadow: "inset 0 1px 0 hsl(0 0% 100% / 0.3)" }}>
                         <span className="inline-flex gap-1">
                           <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
                           <span className="animate-bounce" style={{ animationDelay: "150ms" }}>●</span>
@@ -321,7 +331,7 @@ const Index = () => {
                   </motion.div>
                 )}
               </div>
-              <div className="pb-4 pt-2">
+              <div className="pb-3 sm:pb-4 pt-2">
                 <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
               </div>
             </div>
@@ -329,7 +339,6 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Knowledge Panel */}
       {user && (
         <KnowledgePanel
           userId={user.id}
