@@ -186,7 +186,7 @@ export async function retrieveRelevantChunks(
   if (keywords.length === 0) return [];
 
   // Search chunks using ilike for each keyword
-  let queryBuilder = supabase
+  let queryBuilder = (supabase as any)
     .from("document_chunks")
     .select("content, chunk_index, metadata")
     .eq("user_id", userId)
