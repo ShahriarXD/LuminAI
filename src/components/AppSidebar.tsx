@@ -1,15 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, MessageSquare, FolderKanban, LogOut, Plus, Trash2, X,
-  Pencil, Settings,
+  Pencil, Settings, Pin, Share2, FileDown, Tag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ChatSearch } from "@/components/ChatSearch";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
+import { toast } from "sonner";
 
 interface Chat {
   id: string;
   title: string;
   updated_at: string;
+  is_pinned?: boolean;
+  tags?: string[];
 }
 
 interface Project {
@@ -24,6 +30,9 @@ interface AppSidebarProps {
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
+  onPinChat: (id: string, pinned: boolean) => void;
+  onShareChat: (id: string) => void;
+  onExportChat: (id: string, format: "md" | "pdf") => void;
   projects: Project[];
   activeProjectId: string | null;
   onSelectProject: (id: string | null) => void;
@@ -36,13 +45,15 @@ interface AppSidebarProps {
 type Panel = "none" | "chats" | "projects";
 
 export function AppSidebar({
-  chats, activeChatId, onSelectChat, onNewChat, onDeleteChat,
+  chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, onPinChat, onShareChat, onExportChat,
   projects = [], activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onRenameProject,
   onOpenSettings,
 }: AppSidebarProps) {
   const [panel, setPanel] = useState<Panel>("none");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [exportMenuId, setExportMenuId] = useState<string | null>(null);
 
   const handleLogout = async () => { await supabase.auth.signOut(); };
   const togglePanel = (p: Panel) => setPanel(panel === p ? "none" : p);
@@ -54,6 +65,15 @@ export function AppSidebar({
   };
 
   const activeProject = (projects || []).find((p) => p.id === activeProjectId);
+
+  // Sort: pinned first, then filter by search
+  const filteredChats = chats
+    .filter((c) => !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return 0;
+    });
 
   return (
     <>
@@ -74,7 +94,10 @@ export function AppSidebar({
           <SidebarIcon icon={Settings} label="Settings" onClick={onOpenSettings} />
         </nav>
 
-        <SidebarIcon icon={LogOut} label="Logout" onClick={handleLogout} />
+        <div className="flex flex-col items-center gap-2">
+          <ThemeToggle />
+          <SidebarIcon icon={LogOut} label="Logout" onClick={handleLogout} />
+        </div>
       </motion.aside>
 
       <AnimatePresence>
@@ -95,6 +118,12 @@ export function AppSidebar({
               </button>
             </div>
 
+            {panel === "chats" && (
+              <div className="px-3 pt-2">
+                <ChatSearch onSearch={setSearchQuery} />
+              </div>
+            )}
+
             {panel === "chats" && activeProject && (
               <div className="mx-3 mt-2 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-1.5 text-xs text-primary">
                 <FolderKanban className="h-3 w-3" />
@@ -107,10 +136,10 @@ export function AppSidebar({
 
             <div className="flex-1 overflow-y-auto scrollbar-none p-2 space-y-1">
               {panel === "chats" ? (
-                chats.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-8">No chats yet</p>
+                filteredChats.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-8">{searchQuery ? "No matches" : "No chats yet"}</p>
                 ) : (
-                  chats.map((chat) => (
+                  filteredChats.map((chat) => (
                     <div
                       key={chat.id}
                       className={`group flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all duration-200 hover:translate-x-0.5 ${
@@ -118,14 +147,30 @@ export function AppSidebar({
                       }`}
                       onClick={() => { onSelectChat(chat.id); setPanel("none"); }}
                     >
-                      <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                      {chat.is_pinned && <Pin className="h-3 w-3 shrink-0 text-primary/60" />}
+                      {!chat.is_pinned && <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />}
                       <span className="flex-1 truncate">{chat.title}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }}
-                        className="opacity-0 group-hover:opacity-100 btn-icon-sm text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                        <button onClick={(e) => { e.stopPropagation(); onPinChat(chat.id, !chat.is_pinned); }} className="btn-icon-sm text-muted-foreground hover:text-primary" title={chat.is_pinned ? "Unpin" : "Pin"}>
+                          <Pin className="h-3 w-3" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onShareChat(chat.id); }} className="btn-icon-sm text-muted-foreground hover:text-primary" title="Share">
+                          <Share2 className="h-3 w-3" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setExportMenuId(exportMenuId === chat.id ? null : chat.id); }} className="btn-icon-sm text-muted-foreground hover:text-primary" title="Export">
+                          <FileDown className="h-3 w-3" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }} className="btn-icon-sm text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {/* Export dropdown */}
+                      {exportMenuId === chat.id && (
+                        <div className="absolute right-2 mt-16 z-50 glass-strong rounded-lg shadow-glass p-1 flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { onExportChat(chat.id, "md"); setExportMenuId(null); }} className="px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-md text-left">Markdown</button>
+                          <button onClick={() => { onExportChat(chat.id, "pdf"); setExportMenuId(null); }} className="px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-md text-left">PDF</button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )
@@ -196,14 +241,7 @@ export function AppSidebar({
   );
 }
 
-function SidebarIcon({
-  icon: Icon, label, active, onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
+function SidebarIcon({ icon: Icon, label, active, onClick }: { icon: React.ComponentType<{ className?: string }>; label: string; active?: boolean; onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
