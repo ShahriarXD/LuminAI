@@ -408,7 +408,7 @@ export default function LandingPage() {
           <div className="glass-strong rounded-2xl overflow-hidden">
             <div className="grid grid-cols-3 px-6 py-3 border-b border-border/40 text-xs font-semibold text-muted-foreground">
               <span>Feature</span>
-              <span className="text-center text-primary">ChatBot</span>
+              <span className="text-center text-primary">Lumina</span>
               <span className="text-center">Basic AI Chat</span>
             </div>
             {differentiators.map((d, i) =>
