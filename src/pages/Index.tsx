@@ -1,19 +1,25 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { streamChat, type ModelId, type UserProfile } from "@/lib/chat-api";
+import {
+  streamChat, cleanSourceMarkers, retrieveRelevantChunks, fetchMemories, triggerMemoryExtraction,
+  type ModelId, type ProviderType, type UserProfile, type SourceCitation, type RAGChunk, type Memory,
+} from "@/lib/chat-api";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HeroOrb } from "@/components/HeroOrb";
 import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import { SpeakButton } from "@/components/SpeakButton";
+import { SourceCitations } from "@/components/SourceCitations";
+import { SearchStatus } from "@/components/SearchStatus";
+import { KnowledgePanel } from "@/components/KnowledgePanel";
 import ProfilePage from "@/pages/ProfilePage";
 import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { toast } from "sonner";
 
-interface ChatMsg { role: "user" | "assistant"; content: string; }
+interface ChatMsg { role: "user" | "assistant"; content: string; sources?: SourceCitation[]; }
 interface ChatRecord { id: string; title: string; updated_at: string; project_id: string | null; is_pinned?: boolean; tags?: string[]; }
 interface ProjectRecord { id: string; name: string; description: string | null; system_prompt: string | null; }
 
@@ -26,10 +32,13 @@ const Index = () => {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState<ModelId>("llama-3.3-70b-versatile");
+  const [provider, setProvider] = useState<ProviderType>("groq");
   const [profile, setProfile] = useState<UserProfile>({});
   const [showSettings, setShowSettings] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showKnowledge, setShowKnowledge] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const tts = useTextToSpeech();
 
   const loadChats = useCallback(async () => {
@@ -54,14 +63,19 @@ const Index = () => {
     if (data) setProfile(data as UserProfile);
   }, []);
 
+  const loadMemories = useCallback(async (userId: string) => {
+    const mems = await fetchMemories(userId);
+    setMemories(mems);
+  }, []);
+
   useEffect(() => {
     supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
   }, []);
 
   useEffect(() => {
-    if (user) { loadChats(); loadProjects(); loadProfile(user.id); }
-  }, [user, loadChats, loadProjects, loadProfile]);
+    if (user) { loadChats(); loadProjects(); loadProfile(user.id); loadMemories(user.id); }
+  }, [user, loadChats, loadProjects, loadProfile, loadMemories]);
 
   useEffect(() => { if (activeChatId) loadMessages(activeChatId); else setMessages([]); }, [activeChatId, loadMessages]);
   useEffect(() => { loadChats(); }, [activeProjectId, loadChats]);
@@ -86,26 +100,57 @@ const Index = () => {
     setMessages((prev) => [...prev, userMsg]);
     await supabase.from("messages").insert({ chat_id: chatId, role: "user", content: message });
 
+    // Retrieve RAG context
+    let ragContext: RAGChunk[] = [];
+    if (user) {
+      ragContext = await retrieveRelevantChunks(message, user.id, activeProjectId);
+    }
+
     setIsLoading(true);
     let assistantContent = "";
+    let msgSources: SourceCitation[] = [];
 
     await streamChat({
-      messages: [...messages, userMsg],
+      messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
       model,
+      provider,
       deepThink,
       searchInternet,
       profile,
+      ragContext: ragContext.length > 0 ? ragContext : undefined,
+      memories: memories.length > 0 ? memories : undefined,
       onDelta: (chunk) => {
         assistantContent += chunk;
+        const displayContent = cleanSourceMarkers(assistantContent);
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.role === "assistant") return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantContent } : m));
-          return [...prev, { role: "assistant", content: assistantContent }];
+          if (last?.role === "assistant") return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: displayContent } : m));
+          return [...prev, { role: "assistant", content: displayContent }];
+        });
+      },
+      onSources: (sources) => {
+        msgSources = sources;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant") return prev.map((m, i) => (i === prev.length - 1 ? { ...m, sources } : m));
+          return prev;
         });
       },
       onDone: async () => {
         setIsLoading(false);
-        if (assistantContent && chatId) await supabase.from("messages").insert({ chat_id: chatId, role: "assistant", content: assistantContent });
+        const cleanContent = cleanSourceMarkers(assistantContent);
+        if (cleanContent && chatId) {
+          await supabase.from("messages").insert({ chat_id: chatId, role: "assistant", content: cleanContent });
+        }
+        // Extract memories in background
+        if (chatId) {
+          triggerMemoryExtraction(
+            [...messages, userMsg, { role: "assistant" as const, content: cleanContent }],
+            chatId
+          );
+          // Reload memories periodically
+          setTimeout(() => { if (user) loadMemories(user.id); }, 5000);
+        }
       },
       onError: (error) => { setIsLoading(false); toast.error(error); },
     });
@@ -160,6 +205,11 @@ const Index = () => {
     loadProjects();
   };
 
+  const handleModelChange = (newModel: ModelId, newProvider: ProviderType) => {
+    setModel(newModel);
+    setProvider(newProvider);
+  };
+
   if (showSettings) {
     return <ProfilePage onBack={() => { setShowSettings(false); loadProfile(user?.id); }} />;
   }
@@ -185,15 +235,21 @@ const Index = () => {
         onDeleteProject={handleDeleteProject}
         onRenameProject={handleRenameProject}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenKnowledge={() => setShowKnowledge(true)}
       />
 
       <main className="ml-16 flex flex-1 flex-col">
         <header className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <ModelSelector value={model} onChange={setModel} />
+            <ModelSelector value={model} provider={provider} onChange={handleModelChange} />
             {activeProject && (
               <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
                 {activeProject.name}
+              </span>
+            )}
+            {memories.length > 0 && (
+              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                🧠 {memories.length} memories
               </span>
             )}
           </div>
@@ -217,7 +273,7 @@ const Index = () => {
               </motion.h1>
               <HeroOrb />
               <ActionChips onSelect={(label) => handleSend(label, false)} />
-              <ChatInput onSend={handleSend} isLoading={isLoading} />
+              <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
             </div>
           ) : (
             <div className="flex w-full max-w-2xl flex-1 flex-col">
@@ -230,10 +286,13 @@ const Index = () => {
                     transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="flex flex-col">
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "gradient-send text-primary-foreground" : "glass text-foreground"}`}>
+                    <div className="flex flex-col max-w-[80%]">
+                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "gradient-send text-primary-foreground" : "glass text-foreground"}`}>
                         {msg.content}
                       </div>
+                      {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
+                        <SourceCitations sources={msg.sources} />
+                      )}
                       {msg.role === "assistant" && tts.isSupported && msg.content && (
                         <SpeakButton
                           isPlaying={tts.isPlaying && speakingIdx === i}
@@ -249,23 +308,36 @@ const Index = () => {
                 ))}
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                    <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground">
-                      <span className="inline-flex gap-1">
-                        <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
-                        <span className="animate-bounce" style={{ animationDelay: "150ms" }}>●</span>
-                        <span className="animate-bounce" style={{ animationDelay: "300ms" }}>●</span>
-                      </span>
+                    <div className="flex flex-col gap-1">
+                      <SearchStatus isSearching={true} isThinking={true} hasRagContext={false} />
+                      <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground">
+                        <span className="inline-flex gap-1">
+                          <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
+                          <span className="animate-bounce" style={{ animationDelay: "150ms" }}>●</span>
+                          <span className="animate-bounce" style={{ animationDelay: "300ms" }}>●</span>
+                        </span>
+                      </div>
                     </div>
                   </motion.div>
                 )}
               </div>
               <div className="pb-4 pt-2">
-                <ChatInput onSend={handleSend} isLoading={isLoading} />
+                <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {/* Knowledge Panel */}
+      {user && (
+        <KnowledgePanel
+          userId={user.id}
+          projectId={activeProjectId}
+          isOpen={showKnowledge}
+          onClose={() => setShowKnowledge(false)}
+        />
+      )}
     </div>
   );
 };

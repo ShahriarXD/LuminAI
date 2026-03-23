@@ -6,10 +6,11 @@ import { VoiceListeningOverlay } from "@/components/VoiceListeningOverlay";
 
 interface ChatInputProps {
   onSend: (message: string, deepThink: boolean, searchInternet: boolean) => void;
+  onAttach?: () => void;
   isLoading?: boolean;
 }
 
-export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, onAttach, isLoading }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [deepThink, setDeepThink] = useState(false);
   const [searchInternet, setSearchInternet] = useState(false);
@@ -61,7 +62,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           </div>
           <div className="flex items-center justify-between px-3 pb-2.5">
             <div className="flex items-center gap-1">
-              <ActionButton icon={Paperclip} label="Attach" />
+              <ActionButton icon={Paperclip} label="Attach" onClick={onAttach} />
               <ActionButton icon={Brain} label="Deep Think" active={deepThink} onClick={() => setDeepThink(!deepThink)} />
               <ActionButton icon={Globe} label="Search" active={searchInternet} onClick={() => setSearchInternet(!searchInternet)} activeColor="primary" />
             </div>
