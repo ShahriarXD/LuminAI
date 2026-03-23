@@ -60,7 +60,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
       try {
         const filePath = `${userId}/${Date.now()}-${file.name}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await (supabase as any).storage
           .from("knowledge-files")
           .upload(filePath, file);
 
