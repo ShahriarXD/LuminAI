@@ -4,13 +4,23 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+export const AVAILABLE_MODELS = [
+  { id: "llama-3.3-70b-versatile", label: "LLaMA 3.3 70B", description: "Most capable" },
+  { id: "llama-3.1-8b-instant", label: "LLaMA 3.1 8B", description: "Fast & lightweight" },
+  { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B", description: "Balanced performance" },
+] as const;
+
+export type ModelId = typeof AVAILABLE_MODELS[number]["id"];
+
 export async function streamChat({
   messages,
+  model,
   onDelta,
   onDone,
   onError,
 }: {
   messages: Msg[];
+  model: ModelId;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
@@ -24,7 +34,7 @@ export async function streamChat({
         "Content-Type": "application/json",
         Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, model }),
     });
 
     if (!resp.ok) {
@@ -33,10 +43,7 @@ export async function streamChat({
       return;
     }
 
-    if (!resp.body) {
-      onError("No response body");
-      return;
-    }
+    if (!resp.body) { onError("No response body"); return; }
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
