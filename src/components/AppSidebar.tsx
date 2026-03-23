@@ -2,12 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, MessageSquare, FolderKanban, LogOut, Plus, Trash2, X,
-  Pencil, Settings, Pin, Share2, FileDown, Tag,
+  Pencil, Settings, Pin, Share2, FileDown, BookOpen,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatSearch } from "@/components/ChatSearch";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
 import { toast } from "sonner";
 
 interface Chat {
@@ -40,6 +39,7 @@ interface AppSidebarProps {
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
   onOpenSettings: () => void;
+  onOpenKnowledge: () => void;
 }
 
 type Panel = "none" | "chats" | "projects";
@@ -47,7 +47,7 @@ type Panel = "none" | "chats" | "projects";
 export function AppSidebar({
   chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, onPinChat, onShareChat, onExportChat,
   projects = [], activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onRenameProject,
-  onOpenSettings,
+  onOpenSettings, onOpenKnowledge,
 }: AppSidebarProps) {
   const [panel, setPanel] = useState<Panel>("none");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,7 +66,6 @@ export function AppSidebar({
 
   const activeProject = (projects || []).find((p) => p.id === activeProjectId);
 
-  // Sort: pinned first, then filter by search
   const filteredChats = chats
     .filter((c) => !searchQuery || c.title.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
@@ -91,6 +90,7 @@ export function AppSidebar({
           <SidebarIcon icon={Sparkles} label="New Chat" onClick={onNewChat} />
           <SidebarIcon icon={MessageSquare} label="Chats" active={panel === "chats"} onClick={() => togglePanel("chats")} />
           <SidebarIcon icon={FolderKanban} label="Projects" active={panel === "projects"} onClick={() => togglePanel("projects")} />
+          <SidebarIcon icon={BookOpen} label="Knowledge" onClick={onOpenKnowledge} />
           <SidebarIcon icon={Settings} label="Settings" onClick={onOpenSettings} />
         </nav>
 
@@ -164,7 +164,6 @@ export function AppSidebar({
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      {/* Export dropdown */}
                       {exportMenuId === chat.id && (
                         <div className="absolute right-2 mt-16 z-50 glass-strong rounded-lg shadow-glass p-1 flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => { onExportChat(chat.id, "md"); setExportMenuId(null); }} className="px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-md text-left">Markdown</button>
