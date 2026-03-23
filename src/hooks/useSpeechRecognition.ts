@@ -24,8 +24,9 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const isSupported = !!getSpeechRecognition();
 
   const startListening = useCallback(() => {
-    if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
+    const SR = getSpeechRecognition();
+    if (!SR) return;
+    const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
