@@ -8,10 +8,11 @@ import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import ProfilePage from "@/pages/ProfilePage";
+import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
 import { toast } from "sonner";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
-interface ChatRecord { id: string; title: string; updated_at: string; project_id: string | null; }
+interface ChatRecord { id: string; title: string; updated_at: string; project_id: string | null; is_pinned?: boolean; tags?: string[]; }
 interface ProjectRecord { id: string; name: string; description: string | null; system_prompt: string | null; }
 
 const Index = () => {
@@ -28,7 +29,7 @@ const Index = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadChats = useCallback(async () => {
-    let query = supabase.from("chats").select("id, title, updated_at, project_id").order("updated_at", { ascending: false });
+    let query = supabase.from("chats").select("id, title, updated_at, project_id, is_pinned, tags").order("updated_at", { ascending: false });
     if (activeProjectId) query = query.eq("project_id", activeProjectId);
     const { data } = await query;
     if (data) setChats(data);
@@ -113,6 +114,28 @@ const Index = () => {
     loadChats();
   };
 
+  const handlePinChat = async (id: string, pinned: boolean) => {
+    await supabase.from("chats").update({ is_pinned: pinned } as any).eq("id", id);
+    loadChats();
+  };
+
+  const handleShareChat = async (id: string) => {
+    const shareId = crypto.randomUUID().slice(0, 12);
+    await supabase.from("chats").update({ is_public: true, share_id: shareId } as any).eq("id", id);
+    const url = `${window.location.origin}/shared/${shareId}`;
+    await navigator.clipboard.writeText(url);
+    toast.success("Share link copied to clipboard!");
+    loadChats();
+  };
+
+  const handleExportChat = async (id: string, format: "md" | "pdf") => {
+    const chat = chats.find((c) => c.id === id);
+    const { data: msgs } = await supabase.from("messages").select("role, content").eq("chat_id", id).order("created_at", { ascending: true });
+    if (!msgs) return;
+    if (format === "md") exportAsMarkdown(chat?.title || "Chat", msgs);
+    else exportAsPdf(chat?.title || "Chat", msgs);
+  };
+
   const handleCreateProject = async () => {
     const { data, error } = await supabase.from("projects").insert({ user_id: user.id, name: "New Project" }).select("id").single();
     if (error) { toast.error("Failed to create project"); return; }
@@ -147,6 +170,9 @@ const Index = () => {
         onSelectChat={setActiveChatId}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
+        onPinChat={handlePinChat}
+        onShareChat={handleShareChat}
+        onExportChat={handleExportChat}
         projects={projects}
         activeProjectId={activeProjectId}
         onSelectProject={setActiveProjectId}

@@ -6,15 +6,22 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index.tsx";
-import AuthPage from "./pages/AuthPage.tsx";
+import LandingPage from "./pages/LandingPage.tsx";
+import SharedChatPage from "./pages/SharedChatPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [user, setUser] = useState<any>(undefined); // undefined = loading
+  const [user, setUser] = useState<any>(undefined);
 
   useEffect(() => {
+    // Init theme from localStorage
+    const theme = localStorage.getItem("theme");
+    if (theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+    }
+
     supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
@@ -38,7 +45,8 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={user ? <Index /> : <AuthPage />} />
+            <Route path="/" element={user ? <Index /> : <LandingPage />} />
+            <Route path="/shared/:shareId" element={<SharedChatPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
