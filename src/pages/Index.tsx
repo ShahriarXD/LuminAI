@@ -11,7 +11,7 @@ import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
 import { SpeakButton } from "@/components/SpeakButton";
-import { SourceCitations } from "@/components/SourceCitations";
+import { ChatMessage } from "@/components/chat/ChatMessage";
 import { SearchStatus } from "@/components/SearchStatus";
 import { KnowledgePanel } from "@/components/KnowledgePanel";
 import ProfilePage from "@/pages/ProfilePage";
