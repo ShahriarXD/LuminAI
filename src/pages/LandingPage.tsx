@@ -408,7 +408,7 @@ export default function LandingPage() {
           <div className="glass-strong rounded-2xl overflow-hidden">
             <div className="grid grid-cols-3 px-6 py-3 border-b border-border/40 text-xs font-semibold text-muted-foreground">
               <span>Feature</span>
-              <span className="text-center text-primary">ChatBot</span>
+              <span className="text-center text-primary">Lumina</span>
               <span className="text-center">Basic AI Chat</span>
             </div>
             {differentiators.map((d, i) =>
@@ -547,7 +547,7 @@ export default function LandingPage() {
       {/* ── Footer ── */}
       <footer className="py-10 px-4 text-center border-t border-border/30">
         <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} ChatBot. Built for deep work.<br />
+          © {new Date().getFullYear()} Lumina. Built for deep work.<br />
           Made With ❤️ by K M SHAHRIAR HOSSAIN.
         </p>
       </footer>
