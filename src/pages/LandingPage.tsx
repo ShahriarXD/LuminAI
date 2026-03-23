@@ -546,7 +546,10 @@ export default function LandingPage() {
 
       {/* ── Footer ── */}
       <footer className="py-10 px-4 text-center border-t border-border/30">
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ChatBot. Built for deep work.</p>
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()} ChatBot. Built for deep work.<br />
+          Made With ❤️ by K M SHAHRIAR HOSSAIN.
+        </p>
       </footer>
 
       {/* ── Auth Modal ── */}
