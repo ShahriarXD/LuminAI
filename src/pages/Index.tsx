@@ -10,7 +10,7 @@ import { HeroOrb, type OrbState } from "@/components/HeroOrb";
 import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
 import { ModelSelector } from "@/components/ModelSelector";
-import { SpeakButton } from "@/components/SpeakButton";
+
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { SearchStatus } from "@/components/SearchStatus";
 import { KnowledgePanel } from "@/components/KnowledgePanel";
