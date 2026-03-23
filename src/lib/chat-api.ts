@@ -24,6 +24,7 @@ export async function streamChat({
   messages,
   model,
   deepThink,
+  searchInternet,
   profile,
   onDelta,
   onDone,
@@ -32,6 +33,7 @@ export async function streamChat({
   messages: Msg[];
   model: ModelId;
   deepThink?: boolean;
+  searchInternet?: boolean;
   profile?: UserProfile;
   onDelta: (text: string) => void;
   onDone: () => void;
