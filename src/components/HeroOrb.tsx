@@ -340,7 +340,7 @@ function ContactShadow() {
 
   return (
     <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.59, 0.05]}>
-      <ellipseGeometry args={[1.2, 0.8, 64]} />
+      <circleGeometry args={[1.2, 64]} />
       <meshBasicMaterial
         transparent
         opacity={0.12}
