@@ -7,6 +7,7 @@ import { toast } from "sonner";
 interface DocumentRecord {
   id: string;
   name: string;
+  file_path: string;
   file_type: string;
   file_size: number;
   status: string;
