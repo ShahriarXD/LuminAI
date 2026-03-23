@@ -23,7 +23,7 @@ interface KnowledgePanelProps {
 }
 
 export function KnowledgePanel({ userId, projectId, isOpen, onClose }: KnowledgePanelProps) {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [scope, setScope] = useState<"personal" | "project">(projectId ? "project" : "personal");
   const [memories, setMemories] = useState<any[]>([]);
