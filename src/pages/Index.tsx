@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { streamChat } from "@/lib/chat-api";
+import { streamChat, type ModelId } from "@/lib/chat-api";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HeroOrb } from "@/components/HeroOrb";
 import { ActionChips } from "@/components/ActionChips";
 import { ChatInput } from "@/components/ChatInput";
+import { ModelSelector } from "@/components/ModelSelector";
 import { toast } from "sonner";
-import { User } from "lucide-react";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -26,9 +26,9 @@ const Index = () => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [model, setModel] = useState<ModelId>("llama-3.3-70b-versatile");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load chats
   const loadChats = useCallback(async () => {
     const { data } = await supabase
       .from("chats")
@@ -37,7 +37,6 @@ const Index = () => {
     if (data) setChats(data);
   }, []);
 
-  // Load messages for a chat
   const loadMessages = useCallback(async (chatId: string) => {
     const { data } = await supabase
       .from("messages")
@@ -56,20 +55,15 @@ const Index = () => {
     });
   }, []);
 
-  useEffect(() => {
-    if (user) loadChats();
-  }, [user, loadChats]);
+  useEffect(() => { if (user) loadChats(); }, [user, loadChats]);
 
   useEffect(() => {
     if (activeChatId) loadMessages(activeChatId);
     else setMessages([]);
   }, [activeChatId, loadMessages]);
 
-  // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   const createChat = async (firstMessage: string): Promise<string | null> => {
@@ -96,17 +90,15 @@ const Index = () => {
 
     const userMsg: ChatMsg = { role: "user", content: message };
     setMessages((prev) => [...prev, userMsg]);
-
-    // Save user message
     await supabase.from("messages").insert({ chat_id: chatId, role: "user", content: message });
 
     setIsLoading(true);
     let assistantContent = "";
-
     const allMessages = [...messages, userMsg];
 
     await streamChat({
       messages: allMessages,
+      model,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages((prev) => {
@@ -130,10 +122,7 @@ const Index = () => {
     });
   };
 
-  const handleNewChat = () => {
-    setActiveChatId(null);
-    setMessages([]);
-  };
+  const handleNewChat = () => { setActiveChatId(null); setMessages([]); };
 
   const handleDeleteChat = async (id: string) => {
     await supabase.from("chats").delete().eq("id", id);
@@ -154,15 +143,9 @@ const Index = () => {
       />
 
       <main className="ml-16 flex flex-1 flex-col">
-        <header className="flex items-center justify-end px-6 py-4">
-          <motion.div
-            initial={{ y: -10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center gap-3"
-          >
-            <span className="text-xs text-muted-foreground truncate max-w-[120px]">{user?.email}</span>
-          </motion.div>
+        <header className="flex items-center justify-between px-6 py-4">
+          <ModelSelector value={model} onChange={setModel} />
+          <span className="text-xs text-muted-foreground truncate max-w-[160px]">{user?.email}</span>
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8">
@@ -180,9 +163,7 @@ const Index = () => {
                 <br />
                 <span className="text-foreground">Chat Assistant</span>
               </motion.h1>
-
               <HeroOrb />
-
               <ActionChips onSelect={handleSend} />
               <ChatInput onSend={handleSend} isLoading={isLoading} />
             </div>
@@ -209,11 +190,7 @@ const Index = () => {
                   </motion.div>
                 ))}
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex justify-start"
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                     <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground">
                       <span className="inline-flex gap-1">
                         <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
