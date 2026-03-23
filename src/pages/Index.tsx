@@ -357,7 +357,7 @@ const Index = () => {
                   )}
                 </div>
                 <div className="pb-3 sm:pb-4 pt-2">
-                  <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
+                  <ChatInput onSend={handleSend} onImageGen={handleImageGen} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
                 </div>
               </motion.div>
             )}
