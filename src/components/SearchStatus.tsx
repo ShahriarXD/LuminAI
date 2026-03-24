@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Brain, Loader2, BookOpen } from "lucide-react";
+import { Brain, Loader2, BookOpen } from "lucide-react";
 
 interface SearchStatusProps {
   isSearching: boolean;
@@ -16,13 +16,13 @@ export function SearchStatus({ isSearching, isThinking, hasRagContext }: SearchS
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
-        className="flex items-center gap-3 py-2"
+        className="flex flex-wrap items-center gap-2 py-2"
       >
         {isSearching && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-primary"
+            className="surface-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium text-primary"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>Searching the web...</span>
@@ -32,7 +32,7 @@ export function SearchStatus({ isSearching, isThinking, hasRagContext }: SearchS
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-accent"
+            className="surface-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium text-accent"
           >
             <BookOpen className="h-3 w-3" />
             <span>Using knowledge base</span>
@@ -42,7 +42,7 @@ export function SearchStatus({ isSearching, isThinking, hasRagContext }: SearchS
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground"
+            className="surface-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
           >
             <Brain className="h-3 w-3" />
             <span>Thinking...</span>

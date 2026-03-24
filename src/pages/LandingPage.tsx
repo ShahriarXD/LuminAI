@@ -7,8 +7,8 @@ import { HeroOrb } from "@/components/HeroOrb";
 import {
   Brain, FolderKanban, Mic, Search, Share2, ArrowRight, Globe, FileText,
   MemoryStick, Code2, MessageSquare, Zap, Check, Sparkles, BookOpen, Users,
-  TrendingUp, Lightbulb, ChevronRight } from
-"lucide-react";
+  TrendingUp, Lightbulb, ChevronRight, X,
+} from "lucide-react";
 
 /* ─── data ─── */
 const floatingChips = [
@@ -105,8 +105,8 @@ export default function LandingPage() {
         if (error) throw error;
         toast.success("Check your email for confirmation!");
       }
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -121,30 +121,30 @@ export default function LandingPage() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="fixed top-0 z-50 w-full glass border-b border-border/30">
+        className="fixed top-0 z-50 w-full border-b border-border/30 glass">
         
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
               <span className="font-display text-sm font-bold text-primary">KM</span>
             </div>
-            <span className="font-display text-lg font-bold text-foreground">Lumina by KM ❤️      </span>
+            <span className="font-display text-base font-bold text-foreground sm:text-lg">Lumina by KM</span>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a>
             <a href="#use-cases" className="hover:text-foreground transition-colors">Use Cases</a>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => openAuth(true)}
-              className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground">
+              className="rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground sm:px-4">
               
               Sign In
             </button>
             <button
               onClick={() => openAuth(false)}
-              className="rounded-full gradient-send px-5 py-2 text-sm font-medium text-primary-foreground transition-all hover:shadow-glow hover:brightness-110 active:scale-[0.97]">
+              className="rounded-full gradient-send px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:shadow-glow hover:brightness-110 active:scale-[0.97] sm:px-5">
               
               Get Started
             </button>
@@ -347,7 +347,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
               whileHover={{ y: -3 }}
-              className="glass-strong group rounded-2xl p-6 transition-shadow duration-300 hover:shadow-lg cursor-default">
+              className="surface-panel group cursor-default p-6 transition-shadow duration-300">
               
                 <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 ${
               f.accent === "primary" ?
@@ -462,7 +462,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.06 }}
               whileHover={{ y: -2 }}
-              className="glass-strong rounded-2xl p-5 transition-shadow duration-300 hover:shadow-lg">
+              className="surface-panel p-5 transition-shadow duration-300">
               
                 <uc.icon className="h-5 w-5 text-accent mb-3" />
                 <h3 className="font-display text-sm font-semibold text-foreground">{uc.title}</h3>
@@ -482,7 +482,7 @@ export default function LandingPage() {
             "Powered by modern AI workflows",
             "Built for deep work"].
             map((badge) =>
-            <span key={badge} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+            <span key={badge} className="surface-chip inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-muted-foreground">
                 <Sparkles className="h-3 w-3 text-primary" />
                 {badge}
               </span>
@@ -501,7 +501,7 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="glass-strong rounded-2xl p-5 text-left">
+              className="surface-panel p-5 text-left">
               
                 <p className="text-xs leading-relaxed text-foreground/80 italic">"{t.quote}"</p>
                 <p className="mt-3 text-[11px] font-semibold text-muted-foreground">— {t.role}</p>
@@ -520,7 +520,7 @@ export default function LandingPage() {
             <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 h-40 w-[60%] rounded-full bg-accent/10 blur-[80px]" />
           </div>
 
-          <div className="relative glass-strong rounded-3xl p-10 sm:p-16 text-center">
+          <div className="relative surface-panel rounded-3xl p-8 text-center sm:p-14">
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground leading-tight">
               Start thinking with a
               <br />
@@ -564,19 +564,28 @@ export default function LandingPage() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-background/60 backdrop-blur-xl px-4"
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-background/60 px-4 backdrop-blur-xl"
         onClick={() => setShowAuth(false)}>
         
           <motion.div
           initial={{ y: 24, opacity: 0, scale: 0.97 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-strong w-full max-w-sm rounded-2xl p-8 shadow-lg"
+          className="surface-panel w-full max-w-sm p-6 sm:p-8"
           onClick={(e) => e.stopPropagation()}>
-          
-            <h2 className="mb-6 text-center font-display text-2xl font-bold text-foreground">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-2xl font-bold text-foreground">
               {isLogin ? "Welcome Back" : "Create Account"}
-            </h2>
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isLogin ? "Sign in to continue your workspace." : "Start with a lighter, smarter AI workflow."}
+                </p>
+              </div>
+              <button onClick={() => setShowAuth(false)} className="btn-icon-sm shrink-0" aria-label="Close auth dialog">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
               type="email"
@@ -584,7 +593,7 @@ export default function LandingPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
               required
-              className="w-full rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30" />
+              className="input-shell w-full px-4 py-3 text-sm outline-none placeholder:text-muted-foreground" />
             
               <input
               type="password"
@@ -593,14 +602,14 @@ export default function LandingPage() {
               placeholder="Password"
               required
               minLength={6}
-              className="w-full rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30" />
+              className="input-shell w-full px-4 py-3 text-sm outline-none placeholder:text-muted-foreground" />
             
               <button
               type="submit"
               disabled={loading}
               className="w-full rounded-xl gradient-send py-3 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:shadow-glow active:scale-[0.97] disabled:opacity-50">
               
-                {loading ? "..." : isLogin ? "Sign In" : "Sign Up"}
+                {loading ? "Please wait..." : isLogin ? "Sign In" : "Sign Up"}
               </button>
             </form>
             <p className="mt-4 text-center text-sm text-muted-foreground">

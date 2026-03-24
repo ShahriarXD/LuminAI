@@ -12,25 +12,25 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="text-lg font-bold text-foreground mt-5 mb-2 first:mt-0">{children}</h1>
+          <h1 className="mt-5 mb-2 text-lg font-bold text-foreground first:mt-0">{children}</h1>
         ),
         h2: ({ children }) => (
-          <h2 className="text-base font-semibold text-foreground mt-4 mb-2 first:mt-0">{children}</h2>
+          <h2 className="mt-4 mb-2 text-base font-semibold text-foreground first:mt-0">{children}</h2>
         ),
         h3: ({ children }) => (
-          <h3 className="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">{children}</h3>
+          <h3 className="mt-3 mb-1.5 text-sm font-semibold text-foreground first:mt-0">{children}</h3>
         ),
         p: ({ children }) => (
-          <p className="text-sm leading-relaxed text-foreground/90 mb-2.5 last:mb-0">{children}</p>
+          <p className="mb-2.5 text-sm leading-7 text-foreground/90 last:mb-0">{children}</p>
         ),
         ul: ({ children }) => (
-          <ul className="text-sm space-y-1 mb-3 ml-1 list-none">{children}</ul>
+          <ul className="mb-3 ml-1 list-none space-y-1.5 text-sm">{children}</ul>
         ),
         ol: ({ children }) => (
-          <ol className="text-sm space-y-1 mb-3 ml-1 list-decimal list-inside">{children}</ol>
+          <ol className="mb-3 ml-1 list-decimal list-inside space-y-1.5 text-sm">{children}</ol>
         ),
         li: ({ children, ...props }) => {
-          const isOrdered = (props as any).node?.parentNode?.tagName === "ol";
+          const isOrdered = props.node?.parent?.type === "element" && props.node.parent.tagName === "ol";
           return (
             <li className="flex gap-2 leading-relaxed text-foreground/90">
               {!isOrdered && <span className="text-primary mt-1.5 text-[6px]">●</span>}
@@ -55,7 +55,7 @@ export const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
           </a>
         ),
         blockquote: ({ children }) => (
-          <blockquote className="border-l-2 border-primary/40 pl-3 my-3 text-sm text-muted-foreground italic">
+          <blockquote className="my-3 rounded-r-xl border-l-2 border-primary/40 bg-primary/5 py-2 pl-3 pr-3 text-sm italic text-muted-foreground">
             {children}
           </blockquote>
         ),

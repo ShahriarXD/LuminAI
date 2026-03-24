@@ -17,10 +17,10 @@ export function ModelSelector({ value, provider, onChange }: ModelSelectorProps)
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1.5 text-xs font-medium text-foreground shadow-soft backdrop-blur-sm transition-all duration-200 hover:shadow-glass hover:-translate-y-0.5 active:scale-[0.97] active:translate-y-0"
+        className="control-pill min-w-0 pr-2"
       >
         <Sparkles className="h-3 w-3 text-primary" />
-        {selected?.label || "Select model"}
+        <span className="truncate">{selected?.label || "Select model"}</span>
         <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -32,20 +32,22 @@ export function ModelSelector({ value, provider, onChange }: ModelSelectorProps)
               initial={{ opacity: 0, y: -4, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.97 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-0 top-full z-50 mt-1.5 w-60 rounded-2xl glass-strong shadow-glass overflow-hidden border border-border/30"
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="surface-panel absolute left-0 top-full z-50 mt-2 w-64 overflow-hidden"
             >
               <div className="p-1">
                 {AVAILABLE_MODELS.map((model) => (
                   <button
                     key={model.id}
                     onClick={() => { onChange(model.id, model.provider); setOpen(false); }}
-                    className={`flex w-full flex-col px-3 py-2.5 text-left rounded-xl transition-all duration-150 ${
-                      value === model.id ? "bg-primary/10 shadow-soft" : "hover:bg-muted/50"
+                    className={`flex w-full flex-col rounded-xl px-3 py-2.5 text-left transition-all duration-150 ${
+                      value === model.id ? "bg-primary/10 shadow-soft" : "hover:bg-muted/60"
                     }`}
                   >
-                    <span className="text-xs font-medium text-foreground">{model.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{model.description}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-foreground">{model.label}</span>
+                    </div>
+                    <span className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{model.description}</span>
                   </button>
                 ))}
               </div>

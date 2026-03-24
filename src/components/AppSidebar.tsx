@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, MessageSquare, FolderKanban, LogOut, Plus, Trash2, X,
-  Pencil, Settings, Pin, Share2, FileDown, BookOpen, Menu,
+  Pencil, Settings, Pin, Share2, FileDown, Menu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatSearch } from "@/components/ChatSearch";
@@ -47,7 +47,7 @@ type Panel = "none" | "chats" | "projects";
 export function AppSidebar({
   chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, onPinChat, onShareChat, onExportChat,
   projects = [], activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onRenameProject,
-  onOpenSettings, onOpenKnowledge,
+  onOpenSettings,
 }: AppSidebarProps) {
   const [panel, setPanel] = useState<Panel>("none");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export function AppSidebar({
         {/* Floating hamburger */}
         <button
           onClick={() => setMobileOpen(true)}
-          className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-xl glass shadow-glass btn-press"
+          className="surface-panel fixed left-3 top-3 z-50 flex h-11 w-11 items-center justify-center btn-press"
         >
           <Menu className="h-5 w-5 text-foreground" />
         </button>
@@ -103,14 +103,12 @@ export function AppSidebar({
                 animate={{ x: 0 }}
                 exit={{ x: -300 }}
                 transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                className="fixed left-0 top-0 z-50 flex h-full w-72 flex-col glass-strong border-r border-border/30"
+                className="surface-panel fixed left-0 top-0 z-50 flex h-full w-72 flex-col rounded-none border-r border-border/30"
               >
                 <div className="flex items-center justify-between px-4 py-4 border-b border-border/30">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <span className="font-display text-sm font-bold text-primary">C</span>
-                    </div>
-                    <span className="font-display text-sm font-semibold text-foreground">Chat AI</span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="font-display text-sm font-semibold text-foreground">Lumina</span>
+                    <span className="text-[11px] text-muted-foreground">Workspace</span>
                   </div>
                   <button onClick={() => { setMobileOpen(false); setPanel("none"); }} className="btn-icon-sm text-muted-foreground hover:text-foreground">
                     <X className="h-5 w-5" />
@@ -121,7 +119,6 @@ export function AppSidebar({
                   <MobileNavButton icon={Sparkles} label="New Chat" onClick={() => { onNewChat(); setMobileOpen(false); }} />
                   <MobileNavButton icon={MessageSquare} label="Chat History" active={panel === "chats"} onClick={() => togglePanel("chats")} />
                   <MobileNavButton icon={FolderKanban} label="Projects" active={panel === "projects"} onClick={() => togglePanel("projects")} />
-                  <MobileNavButton icon={BookOpen} label="Knowledge" onClick={() => { onOpenKnowledge(); setMobileOpen(false); }} />
                   <MobileNavButton icon={Settings} label="Settings" onClick={() => { onOpenSettings(); setMobileOpen(false); }} />
                 </nav>
 
@@ -179,7 +176,7 @@ export function AppSidebar({
                           if (panel === "chats") { onNewChat(); setMobileOpen(false); setPanel("none"); }
                           else onCreateProject();
                         }}
-                        className="btn-premium flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground"
+                        className="control-pill flex w-full justify-center gap-2 rounded-xl text-sm text-muted-foreground"
                       >
                         <Plus className="h-4 w-4" />
                         {panel === "chats" ? "New Chat" : "New Project"}
@@ -210,20 +207,12 @@ export function AppSidebar({
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed left-0 top-0 z-40 flex h-full w-16 flex-col items-center py-6 glass"
-        style={{
-          boxShadow: "1px 0 24px hsl(240 20% 50% / 0.04)",
-        }}
+        className="fixed left-0 top-0 z-40 flex h-full w-16 flex-col items-center py-5 glass"
       >
-        <div className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shadow-soft">
-          <span className="font-display text-lg font-bold text-primary">C</span>
-        </div>
-
         <nav className="flex flex-1 flex-col items-center gap-2">
           <SidebarIcon icon={Sparkles} label="New Chat" onClick={onNewChat} />
           <SidebarIcon icon={MessageSquare} label="Chats" active={panel === "chats"} onClick={() => togglePanel("chats")} />
           <SidebarIcon icon={FolderKanban} label="Projects" active={panel === "projects"} onClick={() => togglePanel("projects")} />
-          <SidebarIcon icon={BookOpen} label="Knowledge" onClick={onOpenKnowledge} />
           <SidebarIcon icon={Settings} label="Settings" onClick={onOpenSettings} />
         </nav>
 
@@ -240,10 +229,7 @@ export function AppSidebar({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -240, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed left-16 top-0 z-30 h-full w-64 glass-strong border-r border-border/30 flex flex-col"
-            style={{
-              boxShadow: "4px 0 32px hsl(240 20% 50% / 0.06)",
-            }}
+            className="surface-panel fixed left-16 top-0 z-30 flex h-full w-64 flex-col rounded-none border-r border-border/30"
           >
             <div className="flex items-center justify-between px-4 py-4 border-b border-border/30">
               <h3 className="font-display text-sm font-semibold text-foreground">
@@ -312,7 +298,7 @@ export function AppSidebar({
                   if (panel === "chats") { onNewChat(); setPanel("none"); }
                   else onCreateProject();
                 }}
-                className="btn-premium flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground"
+                className="control-pill flex w-full justify-center gap-2 rounded-xl text-sm text-muted-foreground"
               >
                 <Plus className="h-4 w-4" />
                 {panel === "chats" ? "New Chat" : "New Project"}
@@ -332,7 +318,7 @@ function SidebarIcon({ icon: Icon, label, active, onClick }: { icon: React.Compo
     <button
       onClick={onClick}
       className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 btn-press ${
-        active ? "bg-primary/10 text-primary shadow-soft" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        active ? "bg-primary/10 text-primary shadow-soft" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       }`}
     >
       <Icon className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110" />
@@ -347,8 +333,8 @@ function MobileNavButton({ icon: Icon, label, active, onClick }: { icon: React.C
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 btn-press ${
-        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-200 btn-press ${
+        active ? "bg-primary/10 text-primary shadow-soft" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       }`}
     >
       <Icon className="h-4.5 w-4.5" />
@@ -371,20 +357,20 @@ function ChatListItem({ chat, active, exportMenuId, onSelect, onPin, onShare, on
   return (
     <div
       className={`group relative flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 ${
-        active ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        active ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       }`}
       onClick={onSelect}
     >
       {chat.is_pinned ? <Pin className="h-3 w-3 shrink-0 text-primary/60" /> : <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />}
       <span className="flex-1 truncate">{chat.title}</span>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <button onClick={(e) => { e.stopPropagation(); onPin(); }} className="btn-icon-sm text-muted-foreground hover:text-primary"><Pin className="h-3 w-3" /></button>
         <button onClick={(e) => { e.stopPropagation(); onShare(); }} className="btn-icon-sm text-muted-foreground hover:text-primary"><Share2 className="h-3 w-3" /></button>
         <button onClick={(e) => { e.stopPropagation(); onExportToggle(); }} className="btn-icon-sm text-muted-foreground hover:text-primary"><FileDown className="h-3 w-3" /></button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="btn-icon-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
       {exportMenuId === chat.id && (
-        <div className="absolute right-2 top-full z-50 glass-strong rounded-xl shadow-glass p-1 flex flex-col gap-0.5 mt-1" onClick={(e) => e.stopPropagation()}>
+        <div className="surface-panel absolute right-2 top-full z-50 mt-1 flex flex-col gap-0.5 p-1" onClick={(e) => e.stopPropagation()}>
           <button onClick={() => onExport("md")} className="px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg text-left">Markdown</button>
           <button onClick={() => onExport("pdf")} className="px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg text-left">PDF</button>
         </div>
@@ -400,7 +386,7 @@ function ProjectList({ projects, activeProjectId, editingId, editName, onSelectP
   editName: string;
   onSelectProject: (id: string) => void;
   onSelectAll: () => void;
-  onStartRename: (proj: any) => void;
+  onStartRename: (proj: { id: string; name: string; description: string | null }) => void;
   onEditNameChange: (name: string) => void;
   onCommitRename: () => void;
   onDeleteProject: (id: string) => void;
@@ -410,7 +396,7 @@ function ProjectList({ projects, activeProjectId, editingId, editName, onSelectP
       <button
         onClick={onSelectAll}
         className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 hover:-translate-y-0.5 ${
-          activeProjectId === null ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          activeProjectId === null ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
         }`}
       >
         <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />
@@ -420,7 +406,7 @@ function ProjectList({ projects, activeProjectId, editingId, editName, onSelectP
         <div
           key={proj.id}
           className={`group flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 ${
-            activeProjectId === proj.id ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            activeProjectId === proj.id ? "bg-primary/10 text-foreground shadow-soft" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           }`}
           onClick={() => onSelectProject(proj.id)}
         >
@@ -438,7 +424,7 @@ function ProjectList({ projects, activeProjectId, editingId, editName, onSelectP
           ) : (
             <span className="flex-1 truncate">{proj.name}</span>
           )}
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <button onClick={(e) => { e.stopPropagation(); onStartRename(proj); }} className="btn-icon-sm text-muted-foreground hover:text-foreground">
               <Pencil className="h-3 w-3" />
             </button>

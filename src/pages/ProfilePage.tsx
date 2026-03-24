@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Save, User, Briefcase, Heart, Target, Sliders, Trash2, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProfilePageProps {
   onBack: () => void;
@@ -108,7 +109,7 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
         .from("memories")
         .delete()
         .eq("user_id", user.id);
-      if (memErr) console.error("Failed to delete memories:", memErr);
+      if (memErr) throw memErr;
 
       // Get all user's chats
       const { data: userChats } = await supabase
@@ -120,22 +121,20 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
         const chatIds = userChats.map(c => c.id);
 
         // Delete messages for each chat
-        for (const chatId of chatIds) {
-          await supabase.from("messages").delete().eq("chat_id", chatId);
-        }
+        await Promise.all(chatIds.map((chatId) => supabase.from("messages").delete().eq("chat_id", chatId)));
 
         // Delete all chats
         const { error: chatErr } = await supabase
           .from("chats")
           .delete()
           .eq("user_id", user.id);
-        if (chatErr) console.error("Failed to delete chats:", chatErr);
+        if (chatErr) throw chatErr;
       }
 
       toast.success("All chats and memories have been deleted");
       setShowClearConfirm(false);
       onDataCleared?.();
-    } catch (e) {
+    } catch {
       toast.error("Failed to clear data");
     }
     setClearing(false);
@@ -147,7 +146,7 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="glass-strong w-full max-w-lg rounded-2xl p-8 shadow-glass"
+        className="surface-panel w-full max-w-lg p-8"
       >
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -166,7 +165,7 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
         {loading ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 rounded-xl bg-muted/50 animate-pulse" />
+              <Skeleton key={i} className="h-16 rounded-xl bg-muted/60" />
             ))}
           </div>
         ) : (
@@ -188,7 +187,7 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
                     onChange={(e) => setProfile({ ...profile, [field.key]: e.target.value })}
                     placeholder={field.placeholder}
                     rows={2}
-                    className="w-full rounded-xl border border-border bg-background/50 px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30 resize-none transition-shadow duration-200"
+                    className="input-shell w-full resize-none px-4 py-2.5 text-sm placeholder:text-muted-foreground outline-none"
                   />
                 ) : (
                   <input
@@ -196,7 +195,7 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
                     value={profile[field.key] || ""}
                     onChange={(e) => setProfile({ ...profile, [field.key]: e.target.value })}
                     placeholder={field.placeholder}
-                    className="w-full rounded-xl border border-border bg-background/50 px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30 transition-shadow duration-200"
+                    className="input-shell w-full px-4 py-2.5 text-sm placeholder:text-muted-foreground outline-none"
                   />
                 )}
               </motion.div>
@@ -225,34 +224,34 @@ export default function ProfilePage({ onBack, onDataCleared }: ProfilePageProps)
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Danger Zone
               </h3>
-              <p className="text-xs text-muted-foreground mb-3">
+              <p className="mb-4 text-sm leading-6 text-muted-foreground">
                 This will permanently delete all your chats, messages, and saved memories. This action cannot be undone.
               </p>
 
               {!showClearConfirm ? (
                 <button
                   onClick={() => setShowClearConfirm(true)}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 py-2.5 text-sm font-medium text-destructive transition-all duration-200 hover:bg-destructive/10 hover:border-destructive/50"
+                  className="flex w-full items-center justify-center gap-2 rounded-[1.65rem] border border-destructive/30 bg-destructive/5 px-4 py-4 text-base font-medium text-destructive transition-all duration-200 hover:border-destructive/50 hover:bg-destructive/10"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4 shrink-0" />
                   Delete All Chats & Memories
                 </button>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-destructive text-center">
+                <div className="space-y-3">
+                  <p className="text-center text-sm font-medium text-destructive">
                     Are you sure? This cannot be undone.
                   </p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowClearConfirm(false)}
-                      className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      className="flex-1 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleClearAllData}
                       disabled={clearing}
-                      className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground transition-all duration-200 hover:bg-destructive/90 disabled:opacity-50"
+                      className="flex-1 rounded-xl bg-destructive py-3 text-sm font-semibold text-destructive-foreground transition-all duration-200 hover:bg-destructive/90 disabled:opacity-50"
                     >
                       {clearing ? "Deleting..." : "Yes, Delete All"}
                     </button>

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import {
   streamChat, cleanSourceMarkers, retrieveRelevantChunks, fetchMemories, triggerMemoryExtraction,
@@ -13,19 +14,35 @@ import { ModelSelector } from "@/components/ModelSelector";
 
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { SearchStatus } from "@/components/SearchStatus";
-import { KnowledgePanel } from "@/components/KnowledgePanel";
-import ProfilePage from "@/pages/ProfilePage";
 import { exportAsMarkdown, exportAsPdf } from "@/lib/export-chat";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { processImageOCR } from "@/lib/ocr/api";
+import { formatOcrResultMarkdown } from "@/lib/ocr/format";
+import { buildOcrQuickActions } from "@/lib/ocr/prompts";
+import type { ChatMessageMetadata, OCRImageAttachment } from "@/lib/ocr/types";
 
-interface ChatMsg { role: "user" | "assistant"; content: string; sources?: SourceCitation[]; }
+interface ChatMsg { role: "user" | "assistant"; content: string; sources?: SourceCitation[]; metadata?: ChatMessageMetadata | null; }
 interface ChatRecord { id: string; title: string; updated_at: string; project_id: string | null; is_pinned?: boolean; tags?: string[]; }
 interface ProjectRecord { id: string; name: string; description: string | null; system_prompt: string | null; }
+interface NewChatInsert { user_id: string; title: string; project_id?: string; }
+interface ChatUpdatePayload { is_pinned?: boolean; is_public?: boolean; share_id?: string; }
+
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+function InlineLoader({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="surface-panel flex items-center gap-3 px-5 py-4">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm font-medium text-foreground">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 const Index = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [chats, setChats] = useState<ChatRecord[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -36,9 +53,9 @@ const Index = () => {
   const [provider, setProvider] = useState<ProviderType>("groq");
   const [profile, setProfile] = useState<UserProfile>({});
   const [showSettings, setShowSettings] = useState(false);
-  const [showKnowledge, setShowKnowledge] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const tts = useTextToSpeech();
   const isMobile = useIsMobile();
@@ -56,8 +73,21 @@ const Index = () => {
   }, []);
 
   const loadMessages = useCallback(async (chatId: string) => {
-    const { data } = await supabase.from("messages").select("role, content").eq("chat_id", chatId).order("created_at", { ascending: true });
-    if (data) setMessages(data as ChatMsg[]);
+    const { data } = await supabase
+      .from("messages")
+      .select("role, content, message_metadata")
+      .eq("chat_id", chatId)
+      .order("created_at", { ascending: true });
+
+    if (data) {
+      setMessages(
+        data.map((message) => ({
+          role: message.role as "user" | "assistant",
+          content: message.content,
+          metadata: (message.message_metadata as ChatMessageMetadata | null) ?? null,
+        })),
+      );
+    }
   }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
@@ -85,7 +115,7 @@ const Index = () => {
 
   const createChat = async (firstMessage: string): Promise<string | null> => {
     const title = firstMessage.slice(0, 50) + (firstMessage.length > 50 ? "..." : "");
-    const insertData: any = { user_id: user.id, title };
+    const insertData: NewChatInsert = { user_id: user.id, title };
     if (activeProjectId) insertData.project_id = activeProjectId;
     const { data, error } = await supabase.from("chats").insert(insertData).select("id").single();
     if (error) { toast.error("Failed to create chat"); return null; }
@@ -93,39 +123,52 @@ const Index = () => {
     return data.id;
   };
 
-  const handleSend = async (message: string, deepThink: boolean = false, searchInternet: boolean = false) => {
-    if (isLoading) return;
-    let chatId = activeChatId;
-    if (!chatId) { chatId = await createChat(message); if (!chatId) return; setActiveChatId(chatId); }
+  const persistMessage = async (chatId: string, message: ChatMsg) => {
+    await supabase.from("messages").insert({
+      chat_id: chatId,
+      role: message.role,
+      content: message.content,
+      message_metadata: message.metadata ?? null,
+    });
+  };
 
-    const userMsg: ChatMsg = { role: "user", content: message };
-    setMessages((prev) => [...prev, userMsg]);
-    await supabase.from("messages").insert({ chat_id: chatId, role: "user", content: message });
-
-    let ragContext: RAGChunk[] = [];
-    if (user) {
-      ragContext = await retrieveRelevantChunks(message, user.id, activeProjectId);
-    }
-
+  const streamAssistantReply = async ({
+    chatId,
+    conversation,
+    deepThink,
+    searchInternet,
+  }: {
+    chatId: string;
+    conversation: ChatMsg[];
+    deepThink?: boolean;
+    searchInternet?: boolean;
+  }) => {
     setIsLoading(true);
+    setBusyLabel(searchInternet ? "Searching and responding..." : deepThink ? "Thinking deeply..." : "Generating response...");
+
     let assistantContent = "";
     let msgSources: SourceCitation[] = [];
 
     await streamChat({
-      messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+      messages: conversation.map((message) => ({ role: message.role, content: message.content })),
       model,
       provider,
       deepThink,
       searchInternet,
       profile,
-      ragContext: ragContext.length > 0 ? ragContext : undefined,
+      ragContext: user ? await retrieveRelevantChunks(conversation[conversation.length - 1]?.content || "", user.id, activeProjectId) : undefined,
       memories: memories.length > 0 ? memories : undefined,
       onDelta: (chunk) => {
         assistantContent += chunk;
         const displayContent = cleanSourceMarkers(assistantContent);
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.role === "assistant") return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: displayContent } : m));
+          if (last?.role === "assistant" && !last.metadata) {
+            return prev.map((message, index) =>
+              index === prev.length - 1 ? { ...message, content: displayContent } : message,
+            );
+          }
+
           return [...prev, { role: "assistant", content: displayContent }];
         });
       },
@@ -133,25 +176,153 @@ const Index = () => {
         msgSources = sources;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.role === "assistant") return prev.map((m, i) => (i === prev.length - 1 ? { ...m, sources } : m));
+          if (last?.role === "assistant" && !last.metadata) {
+            return prev.map((message, index) =>
+              index === prev.length - 1 ? { ...message, sources } : message,
+            );
+          }
           return prev;
         });
       },
       onDone: async () => {
         setIsLoading(false);
+        setBusyLabel(null);
         const cleanContent = cleanSourceMarkers(assistantContent);
-        if (cleanContent && chatId) {
-          await supabase.from("messages").insert({ chat_id: chatId, role: "assistant", content: cleanContent });
+        if (cleanContent) {
+          await persistMessage(chatId, { role: "assistant", content: cleanContent, sources: msgSources });
         }
-        if (chatId) {
-          triggerMemoryExtraction(
-            [...messages, userMsg, { role: "assistant" as const, content: cleanContent }],
-            chatId
-          );
-          setTimeout(() => { if (user) loadMemories(user.id); }, 5000);
-        }
+        triggerMemoryExtraction(
+          [...conversation, { role: "assistant" as const, content: cleanContent }],
+          chatId,
+        );
+        if (user) setTimeout(() => loadMemories(user.id), 5000);
       },
-      onError: (error) => { setIsLoading(false); toast.error(error); },
+      onError: (error) => {
+        setIsLoading(false);
+        setBusyLabel(null);
+        toast.error(error);
+      },
+    });
+  };
+
+  const handleSend = async (
+    message: string,
+    deepThink: boolean = false,
+    searchInternet: boolean = false,
+    attachment?: OCRImageAttachment,
+  ) => {
+    if (isLoading) return;
+    let chatId = activeChatId;
+    const initialTitle = attachment?.fileName || message || "New Chat";
+    if (!chatId) {
+      chatId = await createChat(initialTitle);
+      if (!chatId) return;
+      setActiveChatId(chatId);
+    }
+
+    const currentConversation = [...messages];
+
+    if (attachment) {
+      const uploadMessage: ChatMsg = {
+        role: "user",
+        content: `Uploaded image for OCR: ${attachment.fileName}`,
+        metadata: {
+          kind: "user_image_upload",
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+        },
+      };
+
+      setMessages((prev) => [...prev, uploadMessage]);
+      await persistMessage(chatId, uploadMessage);
+
+      const processingMessage: ChatMsg = {
+        role: "assistant",
+        content: "",
+        metadata: {
+          kind: "ocr_processing",
+          fileName: attachment.fileName,
+          label: "Reading image and extracting questions...",
+        },
+      };
+
+      setMessages((prev) => [...prev, processingMessage]);
+      setIsLoading(true);
+      setBusyLabel("Reading image...");
+
+      try {
+        const { result } = await processImageOCR(attachment);
+        const ocrMessage: ChatMsg = {
+          role: "assistant",
+          content: formatOcrResultMarkdown(result),
+          metadata: {
+            kind: "ocr_result",
+            fileName: result.fileName,
+            documentType: result.documentType,
+            title: result.title,
+            questionCount: result.questions.length,
+            quickActions: buildOcrQuickActions(result),
+          },
+        };
+
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = ocrMessage;
+          return next;
+        });
+        await persistMessage(chatId, ocrMessage);
+        setIsLoading(false);
+        setBusyLabel(null);
+
+        if (message.trim()) {
+          const followUpUserMessage: ChatMsg = { role: "user", content: message.trim() };
+          setMessages((prev) => [...prev, followUpUserMessage]);
+          await persistMessage(chatId, followUpUserMessage);
+
+          await streamAssistantReply({
+            chatId,
+            conversation: [...currentConversation, uploadMessage, ocrMessage, followUpUserMessage],
+            deepThink,
+            searchInternet,
+          });
+        }
+
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Failed to read image";
+        const errorMessage: ChatMsg = {
+          role: "assistant",
+          content: reason,
+          metadata: {
+            kind: "ocr_error",
+            fileName: attachment.fileName,
+            reason,
+          },
+        };
+
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = errorMessage;
+          return next;
+        });
+        await persistMessage(chatId, errorMessage);
+        setIsLoading(false);
+        setBusyLabel(null);
+        toast.error(reason);
+        return;
+      }
+    }
+
+    const userMsg: ChatMsg = { role: "user", content: message };
+    setMessages((prev) => [...prev, userMsg]);
+    await persistMessage(chatId, userMsg);
+
+    await streamAssistantReply({
+      chatId,
+      conversation: [...currentConversation, userMsg],
+      deepThink,
+      searchInternet,
     });
   };
 
@@ -164,13 +335,15 @@ const Index = () => {
   };
 
   const handlePinChat = async (id: string, pinned: boolean) => {
-    await supabase.from("chats").update({ is_pinned: pinned } as any).eq("id", id);
+    const payload: ChatUpdatePayload = { is_pinned: pinned };
+    await supabase.from("chats").update(payload).eq("id", id);
     loadChats();
   };
 
   const handleShareChat = async (id: string) => {
     const shareId = crypto.randomUUID().slice(0, 12);
-    await supabase.from("chats").update({ is_public: true, share_id: shareId } as any).eq("id", id);
+    const payload: ChatUpdatePayload = { is_public: true, share_id: shareId };
+    await supabase.from("chats").update(payload).eq("id", id);
     const url = `${window.location.origin}/shared/${shareId}`;
     await navigator.clipboard.writeText(url);
     toast.success("Share link copied to clipboard!");
@@ -210,7 +383,11 @@ const Index = () => {
   };
 
   if (showSettings) {
-    return <ProfilePage onBack={() => { setShowSettings(false); loadProfile(user?.id); }} onDataCleared={() => { setActiveChatId(null); setMessages([]); loadChats(); loadMemories(user?.id); }} />;
+    return (
+      <Suspense fallback={<InlineLoader label="Loading settings" />}>
+        <ProfilePage onBack={() => { setShowSettings(false); if (user) loadProfile(user.id); }} onDataCleared={() => { setActiveChatId(null); setMessages([]); loadChats(); if (user) loadMemories(user.id); }} />
+      </Suspense>
+    );
   }
 
   const showHero = messages.length === 0;
@@ -235,21 +412,16 @@ const Index = () => {
         onDeleteProject={handleDeleteProject}
         onRenameProject={handleRenameProject}
         onOpenSettings={() => setShowSettings(true)}
-        onOpenKnowledge={() => setShowKnowledge(true)}
+        onOpenKnowledge={() => undefined}
       />
 
       <main className={`flex flex-1 flex-col ${isMobile ? "ml-0" : "ml-16"}`}>
-        <header className={`flex items-center justify-between py-3 ${isMobile ? "px-14 pt-4" : "px-6 py-4"}`}>
+        <header className={`flex items-center justify-between border-b border-border/20 ${isMobile ? "px-14 py-4" : "px-6 py-4"}`}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <ModelSelector value={model} provider={provider} onChange={handleModelChange} />
             {activeProject && (
-              <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full truncate max-w-[120px] sm:max-w-none">
+              <span className="surface-chip max-w-[140px] truncate px-2.5 py-1 text-xs font-medium text-primary sm:max-w-none">
                 {activeProject.name}
-              </span>
-            )}
-            {memories.length > 0 && !isMobile && (
-              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-full">
-                🧠 {memories.length} memories
               </span>
             )}
           </div>
@@ -258,7 +430,7 @@ const Index = () => {
           )}
         </header>
 
-        <div className="flex flex-1 flex-col items-center justify-center px-3 sm:px-4 pb-4 sm:pb-8">
+        <div className="flex flex-1 flex-col items-center justify-center px-3 pb-4 sm:px-4 sm:pb-8">
           <AnimatePresence mode="wait">
             {showHero ? (
               <motion.div
@@ -266,7 +438,7 @@ const Index = () => {
                 initial={{ opacity: 1 }}
                 exit={{ opacity: 0, scale: 0.96, y: -20 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-col items-center gap-5 sm:gap-8 w-full max-w-2xl"
+                className="flex w-full max-w-2xl flex-col items-center gap-5 sm:gap-8"
               >
                 <motion.h1
                   initial={{ y: 16, opacity: 0 }}
@@ -275,14 +447,14 @@ const Index = () => {
                   className="text-center font-display text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight"
                   style={{ lineHeight: "1.1" }}
                 >
-                  <span className="text-gradient-muted">AI Powered</span>{" "}
-                  <span className="text-foreground">Smart</span>
+                  <span className="text-gradient-muted">Lumina</span>{" "}
+                  <span className="text-foreground">Workspace</span>
                   <br />
-                  <span className="text-foreground">Chat Assistant</span>
+                  <span className="text-foreground">for Deep Thinking</span>
                 </motion.h1>
                 <HeroOrb state={orbState} />
                 <ActionChips onSelect={(label) => handleSend(label, false)} />
-                <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
+                <ChatInput onSend={handleSend} isLoading={isLoading} busyLabel={busyLabel ?? undefined} />
               </motion.div>
             ) : (
               <motion.div
@@ -292,13 +464,14 @@ const Index = () => {
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 className="flex w-full max-w-2xl flex-1 flex-col"
               >
-                <div ref={scrollRef} className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto px-1 sm:px-2 py-4 scrollbar-none">
+                <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-1 py-4 scrollbar-none sm:space-y-4 sm:px-2">
                   {messages.map((msg, i) => (
                     <ChatMessage
                       key={i}
                       role={msg.role}
                       content={msg.content}
                       sources={msg.sources}
+                      metadata={msg.metadata}
                       index={i}
                       isMobile={isMobile}
                       ttsSupported={msg.role === "assistant" && tts.isSupported}
@@ -308,13 +481,15 @@ const Index = () => {
                       onPause={tts.pause}
                       onResume={tts.resume}
                       onStop={() => { tts.stop(); setSpeakingIdx(null); }}
+                      onQuickAction={(prompt) => handleSend(prompt, false, false)}
+                      quickActionsDisabled={isLoading}
                     />
                   ))}
                   {isLoading && messages[messages.length - 1]?.role === "user" && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                       <div className="flex flex-col gap-1">
                         <SearchStatus isSearching={true} isThinking={true} hasRagContext={false} />
-                        <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground" style={{ boxShadow: "inset 0 1px 0 hsl(0 0% 100% / 0.3)" }}>
+                        <div className="surface-subtle rounded-[1.35rem] px-4 py-3 text-sm text-muted-foreground">
                           <span className="inline-flex gap-1">
                             <span className="animate-bounce" style={{ animationDelay: "0ms" }}>●</span>
                             <span className="animate-bounce" style={{ animationDelay: "150ms" }}>●</span>
@@ -326,7 +501,7 @@ const Index = () => {
                   )}
                 </div>
                 <div className="pb-3 sm:pb-4 pt-2">
-                  <ChatInput onSend={handleSend} onAttach={() => setShowKnowledge(true)} isLoading={isLoading} />
+                  <ChatInput onSend={handleSend} isLoading={isLoading} busyLabel={busyLabel ?? undefined} />
                 </div>
               </motion.div>
             )}
@@ -334,14 +509,6 @@ const Index = () => {
         </div>
       </main>
 
-      {user && (
-        <KnowledgePanel
-          userId={user.id}
-          projectId={activeProjectId}
-          isOpen={showKnowledge}
-          onClose={() => setShowKnowledge(false)}
-        />
-      )}
     </div>
   );
 };

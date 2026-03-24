@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Lightbulb, Code, PenLine, Zap, MoreHorizontal } from "lucide-react";
+import { Lightbulb, Code, PenLine, Zap } from "lucide-react";
 
 const chips = [
   { icon: Lightbulb, label: "Explain a concept" },
@@ -29,22 +29,12 @@ export function ActionChips({ onSelect }: ActionChipsProps) {
           whileHover={{ y: -2, scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => onSelect(chip.label)}
-          className="flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-secondary-foreground shadow-soft backdrop-blur-sm transition-all duration-200 hover:shadow-glass hover:bg-card"
-          style={{
-            boxShadow: "0 2px 12px hsl(240 20% 50% / 0.06), inset 0 1px 0 hsl(0 0% 100% / 0.3)",
-          }}
+          className="surface-chip flex items-center gap-2 px-3 py-2 text-xs font-medium transition-all duration-200 hover:bg-card/85 sm:px-4 sm:text-sm"
         >
           <chip.icon className="h-3.5 w-3.5 text-muted-foreground" />
           {chip.label}
         </motion.button>
       ))}
-      <motion.button
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.95 }}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card/60 text-muted-foreground shadow-soft backdrop-blur-sm transition-all duration-200 hover:shadow-glass hover:text-foreground"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </motion.button>
     </motion.div>
   );
 }

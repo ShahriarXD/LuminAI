@@ -2,19 +2,12 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, Trash2, Loader2, CheckCircle, AlertCircle, X, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
-interface DocumentRecord {
-  id: string;
-  name: string;
-  file_path: string;
-  file_type: string;
-  file_size: number;
-  status: string;
-  chunk_count: number;
-  scope: string;
-  created_at: string;
-}
+type DocumentRecord = Database["public"]["Tables"]["documents"]["Row"];
+type DocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
+type MemoryRecord = Database["public"]["Tables"]["memories"]["Row"];
 
 interface KnowledgePanelProps {
   userId: string;
@@ -27,20 +20,20 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [scope, setScope] = useState<"personal" | "project">(projectId ? "project" : "personal");
-  const [memories, setMemories] = useState<any[]>([]);
+  const [memories, setMemories] = useState<MemoryRecord[]>([]);
   const [activeTab, setActiveTab] = useState<"files" | "memory">("files");
 
   const loadDocuments = useCallback(async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("documents")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (data) setDocuments(data as DocumentRecord[]);
+    if (data) setDocuments(data);
   }, [userId]);
 
   const loadMemories = useCallback(async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("memories")
       .select("*")
       .eq("user_id", userId)
@@ -61,7 +54,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
       try {
         const filePath = `${userId}/${Date.now()}-${file.name}`;
 
-        const { error: uploadError } = await (supabase as any).storage
+        const { error: uploadError } = await supabase.storage
           .from("knowledge-files")
           .upload(filePath, file);
 
@@ -70,18 +63,20 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
           continue;
         }
 
-        const { data: docData, error: docError } = await (supabase as any)
+        const insertPayload: DocumentInsert = {
+          user_id: userId,
+          project_id: scope === "project" ? projectId : null,
+          name: file.name,
+          file_path: filePath,
+          file_type: file.type,
+          file_size: file.size,
+          status: "processing",
+          scope,
+        };
+
+        const { data: docData, error: docError } = await supabase
           .from("documents")
-          .insert({
-            user_id: userId,
-            project_id: scope === "project" ? projectId : null,
-            name: file.name,
-            file_path: filePath,
-            file_type: file.type,
-            file_size: file.size,
-            status: "processing",
-            scope,
-          })
+          .insert(insertPayload)
           .select("id")
           .single();
 
@@ -104,7 +99,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
         });
 
         toast.success(`Uploading ${file.name}...`);
-      } catch (err) {
+      } catch {
         toast.error(`Error uploading ${file.name}`);
       }
     }
@@ -114,14 +109,14 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
   };
 
   const handleDelete = async (doc: DocumentRecord) => {
-    await (supabase as any).storage.from("knowledge-files").remove([doc.file_path]);
-    await (supabase as any).from("documents").delete().eq("id", doc.id);
+    await supabase.storage.from("knowledge-files").remove([doc.file_path]);
+    await supabase.from("documents").delete().eq("id", doc.id);
     toast.success("File deleted");
     loadDocuments();
   };
 
   const handleDeleteMemory = async (id: string) => {
-    await (supabase as any).from("memories").delete().eq("id", id);
+    await supabase.from("memories").delete().eq("id", id);
     toast.success("Memory removed");
     loadMemories();
   };
@@ -150,7 +145,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 300, opacity: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed right-0 top-0 z-50 h-full w-80 glass-strong border-l border-border/50 flex flex-col"
+        className="surface-panel fixed right-0 top-0 z-50 flex h-full w-full max-w-[22rem] flex-col rounded-none border-l border-border/50"
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-border/30">
           <h3 className="font-display text-sm font-semibold text-foreground">Knowledge Base</h3>
@@ -163,13 +158,13 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
         <div className="flex gap-1 p-2 border-b border-border/30">
           <button
             onClick={() => setActiveTab("files")}
-            className={`flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors ${activeTab === "files" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${activeTab === "files" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
           >
             <FileText className="h-3 w-3 inline mr-1" /> Files
           </button>
           <button
             onClick={() => setActiveTab("memory")}
-            className={`flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors ${activeTab === "memory" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${activeTab === "memory" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
           >
             <Brain className="h-3 w-3 inline mr-1" /> Memory ({memories.length})
           </button>
@@ -182,13 +177,13 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
               <div className="flex gap-1 p-2 border-b border-border/30">
                 <button
                   onClick={() => setScope("personal")}
-                  className={`flex-1 text-[10px] font-medium py-1 rounded-md transition-colors ${scope === "personal" ? "bg-accent/10 text-accent" : "text-muted-foreground"}`}
+                  className={`flex-1 rounded-md py-1.5 text-[10px] font-medium transition-colors ${scope === "personal" ? "bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted/50"}`}
                 >
                   Personal
                 </button>
                 <button
                   onClick={() => setScope("project")}
-                  className={`flex-1 text-[10px] font-medium py-1 rounded-md transition-colors ${scope === "project" ? "bg-accent/10 text-accent" : "text-muted-foreground"}`}
+                  className={`flex-1 rounded-md py-1.5 text-[10px] font-medium transition-colors ${scope === "project" ? "bg-accent/10 text-accent" : "text-muted-foreground hover:bg-muted/50"}`}
                 >
                   Project
                 </button>
@@ -196,7 +191,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
             )}
 
             {/* Upload area */}
-            <label className="mx-3 mt-3 flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border/60 py-6 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors">
+            <label className="mx-3 mt-3 flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border/70 bg-background/30 py-6 transition-colors hover:border-primary/40 hover:bg-primary/5">
               <Upload className="h-5 w-5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
                 {isUploading ? "Uploading..." : "Drop files or click to upload"}
@@ -222,7 +217,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
                     key={doc.id}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="group flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-muted/50 transition-colors"
+                    className="group surface-subtle flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/50"
                   >
                     {statusIcon(doc.status)}
                     <div className="flex-1 min-w-0">
@@ -233,7 +228,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
                     </div>
                     <button
                       onClick={() => handleDelete(doc)}
-                      className="btn-icon-sm text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
+                      className="btn-icon-sm shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -254,7 +249,7 @@ export function KnowledgePanel({ userId, projectId, isOpen, onClose }: Knowledge
                   key={mem.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="group flex items-start gap-2 rounded-xl px-3 py-2 hover:bg-muted/50 transition-colors"
+                  className="group surface-subtle flex items-start gap-2 px-3 py-2.5 transition-colors hover:bg-muted/50"
                 >
                   <span className="text-[10px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-md shrink-0 mt-0.5">
                     {mem.category}

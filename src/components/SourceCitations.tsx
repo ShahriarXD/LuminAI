@@ -20,7 +20,7 @@ export function SourceCitations({ sources }: SourceCitationsProps) {
     >
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="surface-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <Globe className="h-3 w-3" />
         <span>{sources.length} source{sources.length > 1 ? "s" : ""}</span>
@@ -33,8 +33,8 @@ export function SourceCitations({ sources }: SourceCitationsProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="mt-1.5 space-y-1 overflow-hidden"
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-2 space-y-2 overflow-hidden"
           >
             {sources.map((source, i) => (
               <motion.a
@@ -45,17 +45,17 @@ export function SourceCitations({ sources }: SourceCitationsProps) {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-start gap-2 rounded-lg glass px-3 py-2 group hover:bg-primary/5 transition-colors"
+                className="surface-subtle group flex items-start gap-2 px-3 py-2.5 transition-colors hover:bg-primary/5"
               >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted/85 text-[10px] font-bold text-muted-foreground">
                   {i + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                  <p className="truncate text-[11px] font-medium text-foreground transition-colors group-hover:text-primary">
                     {source.title}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate">{source.snippet}</p>
-                  <p className="text-[9px] text-muted-foreground/60 mt-0.5">{source.domain}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">{source.snippet}</p>
+                  <p className="mt-1 text-[9px] text-muted-foreground/60">{source.domain}</p>
                 </div>
                 <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground/50 group-hover:text-primary transition-colors mt-0.5" />
               </motion.a>

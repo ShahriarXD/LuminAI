@@ -30,7 +30,14 @@ export function HeroOrb({ state = "idle" }: HeroOrbProps) {
   }, [mouseX, mouseY]);
 
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove);
+    if (typeof window === "undefined") return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+
+    if (reduceMotion || coarsePointer) return;
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [handleMouseMove]);
 

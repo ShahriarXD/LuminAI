@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import type { User } from "@supabase/supabase-js";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,7 +14,7 @@ import NotFound from "./pages/NotFound.tsx";
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [user, setUser] = useState<any>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
 
   useEffect(() => {
     // Init theme from localStorage
@@ -35,8 +36,14 @@ const App = () => {
 
   if (user === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="surface-panel flex items-center gap-3 px-5 py-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Loading workspace</p>
+            <p className="text-xs text-muted-foreground">Preparing your AI environment...</p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -87,12 +87,21 @@ export async function streamChat({
 }) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
+    let accessToken = session?.access_token;
+
+    // Refresh shortly-before-expiry sessions so the function gateway
+    // doesn't reject an otherwise valid user with a stale JWT.
+    if (session?.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      accessToken = refreshed.session?.access_token ?? accessToken;
+    }
 
     const resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ messages, model, provider, deepThink, searchInternet, profile, ragContext, memories }),
     });
@@ -230,5 +239,3 @@ export async function triggerMemoryExtraction(messages: Msg[], chatId: string | 
     // Silent fail - memory extraction is non-critical
   }
 }
-
-

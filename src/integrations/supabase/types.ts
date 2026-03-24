@@ -196,6 +196,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          message_metadata: Json | null
           role: string
         }
         Insert: {
@@ -203,6 +204,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          message_metadata?: Json | null
           role: string
         }
         Update: {
@@ -210,6 +212,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          message_metadata?: Json | null
           role?: string
         }
         Relationships: [
