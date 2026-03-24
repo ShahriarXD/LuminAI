@@ -3,6 +3,7 @@
 LuminAI is a premium AI workspace built with Vite, React, TypeScript, and Supabase. It combines conversational chat, long-term memory, web-aware responses, file understanding, voice input/output, project workspaces, public chat sharing, and image OCR for question-paper understanding inside a polished glassmorphism UI.
 
 ## Preview
+https://luminabykm.vercel.app/
 ![LuminAi](ss.png)
 
 
